@@ -1,0 +1,28 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="MCLoreBotNew">
+    <output-path>$USER_HOME$/Desktop/PluginTesting/SpigotServer/plugins</output-path>
+    <root id="archive" name="MCLoreBotNew.jar">
+      <element id="library" level="project" name="Maven: org.javacord:javacord-core:3.5.0" />
+      <element id="library" level="project" name="Maven: com.squareup.okhttp3:okhttp:4.9.3" />
+      <element id="library" level="project" name="Maven: com.squareup.okio:okio:2.8.0" />
+      <element id="library" level="project" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-common:1.4.0" />
+      <element id="library" level="project" name="Maven: org.jetbrains.kotlin:kotlin-stdlib:1.4.10" />
+      <element id="library" level="project" name="Maven: com.squareup.okhttp3:logging-interceptor:4.9.3" />
+      <element id="library" level="project" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.4.10" />
+      <element id="library" level="project" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.4.10" />
+      <element id="library" level="project" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.12.6" />
+      <element id="library" level="project" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.12.6" />
+      <element id="library" level="project" name="Maven: com.fasterxml.jackson.core:jackson-core:2.12.6" />
+      <element id="library" level="project" name="Maven: com.neovisionaries:nv-websocket-client:2.14" />
+      <element id="library" level="project" name="Maven: com.codahale:xsalsa20poly1305:0.11.0" />
+      <element id="library" level="project" name="Maven: org.bouncycastle:bcprov-jdk15on:1.60" />
+      <element id="library" level="project" name="Maven: org.apache.logging.log4j:log4j-api:2.17.2" />
+      <element id="library" level="project" name="Maven: io.vavr:vavr:0.10.4" />
+      <element id="library" level="project" name="Maven: io.vavr:vavr-match:0.10.4" />
+      <element id="file-copy" path="$USER_HOME$/Desktop/PluginTesting/Spigot/Spigot-API/target/spigot-api-1.18.2-R0.1-SNAPSHOT-shaded.jar" />
+      <element id="library" level="project" name="Maven: org.javacord:javacord-api:3.5.0" />
+      <element id="library" level="project" name="Maven: org.jetbrains:annotations:13.0" />
+      <element id="module-output" name="DiscordLore" />
+    </root>
+  </artifact>
+</component>

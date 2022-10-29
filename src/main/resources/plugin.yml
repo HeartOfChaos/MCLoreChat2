@@ -1,0 +1,12 @@
+name: MCLoreBot
+version: '2.0.0'
+main: org.github.heartofchaos.Main
+api-version: 1.13
+authors: [ HeartOfChaos ]
+description: A plugin that allows you to import and export lore text to and from discord.
+commands:
+  dlore:
+    description: Used for Discord Lore commands.
+permissions:
+  mclore.*:
+    description: Gives access to all MCLoreBot commands.
