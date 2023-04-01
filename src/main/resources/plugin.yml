@@ -10,3 +10,21 @@ commands:
 permissions:
   mclore.*:
     description: Gives access to all MCLoreBot commands.
+  mclore.start:
+    description: Gives permission to the command to start the bot.
+  mclore.stop:
+    description: Gives permission to the command to stop the bot.
+  mclore.token:
+    description: Gives permission to set the bot's token.
+  mclore.link:
+    description: Gives permission to link your account to a discord account.
+  mclore.gui:
+    description: Gives permission to open the lore gui.
+  mclore.clear:
+    description: Gives permission to clear your lore queue of all items.
+  mclore.set:
+    description: Gives permission to set the lore of the item you're holding to your latest lore.
+  mclore.dlore:
+    description: Gives permission to use the main /dlore command.
+  mclore.send:
+    description: Gives permission to send lore to your dms using /dlore send.

@@ -95,6 +95,7 @@ public class UsersAndAccounts {
 
     public void generateAccountFile(long discordID) {
         File accountFile = new File(main.getDataFolder() + File.separator + "DiscordAccounts", discordID + ".yml");
+
         YamlConfiguration accountConfig = YamlConfiguration.loadConfiguration(accountFile);
         ArrayList players = new ArrayList<>();
         ArrayList<ArrayList> lore = new ArrayList<>();
@@ -136,7 +137,10 @@ public class UsersAndAccounts {
         generatePlayerFile(uuid);
         YamlConfiguration playerConfig = getPlayerConfig(uuid);
         if (!playerConfig.isSet("LinkedAccount")) return 0;
-        long discordID =  Long.valueOf((int) playerConfig.get("LinkedAccount"));
+        if (!(playerConfig.get("LinkedAccount") instanceof Long)) {
+            return 0;
+        }
+        long discordID =  (long) playerConfig.get("LinkedAccount");
 
         return discordID;
     }
@@ -169,7 +173,6 @@ public class UsersAndAccounts {
         generateGlobalData();
         File dataFile = getGlobalDataFile();
         YamlConfiguration dataConfig = YamlConfiguration.loadConfiguration(dataFile);
-
         dataConfig.set("codes." + code, uuid.toString());
         dataConfig.set("playerCodes." + uuid, code);
         try {
@@ -188,15 +191,14 @@ public class UsersAndAccounts {
         return true;
     }
 
-    //The "long" here is the generated code which points to the path we're trying to remove.
     public void removeCode(long code) {
-        //This makes sure that the config file we're trying to read and edit exists.
+        //Ensure config exists
         generateGlobalData();
         File dataFile = getGlobalDataFile();
         YamlConfiguration dataConfig = YamlConfiguration.loadConfiguration(dataFile);
-        //This is a guard statement making sure that the long someone sent us is a valid code.
+        //Ensure code is valid
         if (!dataConfig.isSet("codes." + code)) return;
-        //This points to the UUID of the player who originally generated this code, so that it can be removed.
+        //Remove code
         String existingUUID = (String) dataConfig.get("codes." + code);
         /*Here, both values are removed from the config. Except only the "playerCodes." entry is removed. I even tried
         to make "code" here a String variable since existingUUID is a string variable, but that did not work.*/
@@ -210,14 +212,15 @@ public class UsersAndAccounts {
     }
 
     public boolean isLinked(UUID uuid) {
-        if ((int) getPlayerConfig(uuid).get("LinkedAccount") > 1) {
-           return true;
-        }
-        return false;
+        Object linkedAccount = getPlayerConfig(uuid).get("LinkedAccount");
+        return linkedAccount instanceof Long;
     }
 
     public void removeLink(UUID uuid) {
-        long discordID = Long.valueOf((int) getPlayerConfig(uuid).get("LinkedAccount"));
+        if (!((Long) getPlayerConfig(uuid).get("LinkedAccount") <= 0)) {
+            return;
+        }
+        long discordID = (long) getPlayerConfig(uuid).get("LinkedAccount");
         File accountFile = getAccountFile(discordID);
         YamlConfiguration accountConfig = getAccountConfig(discordID);
         File playerFile = getPlayerFile(uuid);
@@ -270,5 +273,67 @@ public class UsersAndAccounts {
             error.printStackTrace();
         }
     }
+
+    public ArrayList<ArrayList<String>> getPlayerLore(UUID uuid) {
+        ArrayList<ArrayList<String>> blankArray = new ArrayList<>();
+        long discordID = this.getLinkedAccount(uuid);
+        if (!this.isLinked(uuid)) return blankArray;
+        generatePlayerFile(uuid);
+        generateAccountFile(this.getLinkedAccount(uuid));
+
+        Object loreQueueObj = getAccountConfig(discordID).get("LoreQueue");
+        if (!(loreQueueObj instanceof ArrayList)) {
+            return blankArray;
+        }
+        ArrayList<?> loreQueueRaw = (ArrayList<?>) loreQueueObj;
+        ArrayList<ArrayList<String>> loreQueue = new ArrayList<>();
+        for (Object element : loreQueueRaw) {
+            if (element instanceof ArrayList) {
+                ArrayList<?> innerListRaw = (ArrayList<?>) element;
+                ArrayList<String> innerList = new ArrayList<>();
+                for (Object innerElement : innerListRaw) {
+                    if (innerElement instanceof String) {
+                        String loreLine = (String) innerElement;
+                        innerList.add(ChatColor.translateAlternateColorCodes('&', loreLine));
+                    }
+                }
+                loreQueue.add(innerList);
+            }
+        }
+
+        if (loreQueue.isEmpty()) return blankArray;
+        return loreQueue;
+    }
+
+
+
+    public ArrayList<ArrayList<String>> getUserLore(Long discordID) {
+        ArrayList<ArrayList<String>> blankArray = new ArrayList<>();
+
+        generateAccountFile(discordID);
+        Object loreQueueObj = getAccountConfig(discordID).get("LoreQueue");
+        if (!(loreQueueObj instanceof ArrayList)) {
+            return blankArray;
+        }
+        ArrayList<?> loreQueueRaw = (ArrayList<?>) loreQueueObj;
+        ArrayList<ArrayList<String>> loreQueue = new ArrayList<>();
+        for (Object element : loreQueueRaw) {
+            if (element instanceof ArrayList) {
+                ArrayList<?> innerListRaw = (ArrayList<?>) element;
+                ArrayList<String> innerList = new ArrayList<>();
+                for (Object innerElement : innerListRaw) {
+                    if (innerElement instanceof String) {
+                        String loreLine = (String) innerElement;
+                        innerList.add(ChatColor.translateAlternateColorCodes('&', loreLine));
+                    }
+                }
+                loreQueue.add(innerList);
+            }
+        }
+
+        if (loreQueue.isEmpty()) return blankArray;
+        return loreQueue;
+    }
+
 
 }

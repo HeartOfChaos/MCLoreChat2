@@ -11,7 +11,7 @@ public class LoreParser {
     static String parsedString;
     Main main;
 
-    public LoreParser(Main main, String string) {
+    public LoreParser(Main main) {
         this.main = main;
     }
 
@@ -51,6 +51,7 @@ public class LoreParser {
             }
         }
         newLore = ampersandPreserve(newLore, false);
+
         newLore.set(0, name);
         return newLore;
     }

@@ -4,20 +4,25 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.github.heartofchaos.Main;
 import org.github.heartofchaos.utilities.GuiHandler;
-import org.github.heartofchaos.utilities.UserDataHandler;
 import org.github.heartofchaos.utilities.UsersAndAccounts;
 import org.javacord.api.DiscordApi;
+import org.javacord.api.entity.user.User;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class Commands implements CommandExecutor {
+public class Commands implements CommandExecutor, TabCompleter {
 
     public Integer randomCode() {
         int randomNum = ThreadLocalRandom.current().nextInt(1000, 9999);
@@ -42,11 +47,10 @@ public class Commands implements CommandExecutor {
 
     public static Map<Integer, Player> playerFromDiscordID = new HashMap<Integer, Player>();
     public static Map<Player, Integer> discordIDFromPlayer = new HashMap<Player, Integer>();
-
+    UsersAndAccounts dataHandler = new UsersAndAccounts(main);
     public FileConfiguration getConfig(Player player) {
-        UserDataHandler dataHandler = new UserDataHandler(main);
-        dataHandler.createUser(player);
-        return dataHandler.getUserFile(player);
+        dataHandler.generatePlayerFile(player.getUniqueId());
+        return dataHandler.getPlayerConfig(player.getUniqueId());
     }
 
     public Commands(Main main) {
@@ -64,17 +68,36 @@ public class Commands implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
-        UsersAndAccounts dataHandler = new UsersAndAccounts(main);
-
-        if (args.length <= 0) {
-            sender.sendMessage(ChatColor.RED + "WRITE HELP MESSAGE!");
+        if (!sender.hasPermission("mclore.dlore") && !sender.hasPermission("mclore.*")) {
+            sender.sendMessage(ChatColor.RED + "You do not have permission!");
             return true;
         }
 
+        UsersAndAccounts dataHandler = new UsersAndAccounts(main);
+        List<String> helpOptions = Arrays.asList("/dlore gui: Opens an interactive gui to add lore to the item held in your hand.",
+                "/dlore token [token]: Sets the token of the bot for connecting to Discord. Remember to keep your bot token private.",
+                "/dlore start: Starts the bot if it has a valid token, connecting it to Discord.",
+                "/dlore stop: Stops the bot, disconnecting it from Discord. Can be started again.",
+                "/dlore link: Gives you a four-digit code which you can DM the bot to link your Discord account.",
+                "/dlore clear: Clears all of the lore you've added to your lore queue. Can't be reversed!",
+                "/dlore set: Sets the lore of the item in your hand to the latest lore in your lore queue.",
+                "/dlore send: Sends the lore of the item in your hand to your DMs.");
+
+
+        if (args.length <= 0) {
+            sender.sendMessage(ChatColor.GREEN + String.join("\n" + ChatColor.GREEN, helpOptions));
+            return true;
+        }
+
+        long discordID;
 
         switch (args[0].toLowerCase()) {
             //Command to start the bot.
             case "start":
+                if (!sender.hasPermission("mclore.start") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
                 if (main.getApi() != null) {
                     sender.sendMessage(ChatColor.RED + "The bot is already active!");
                     return true;
@@ -83,18 +106,28 @@ public class Commands implements CommandExecutor {
                 break;
             //Command to stop the bot.
             case "stop":
+                if (!sender.hasPermission("mclore.stop") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
                 if (main.getApi() == null) {
                     sender.sendMessage(ChatColor.RED + "The bot is already not active!");
                     return true;
                 }
                 main.stopBot(sender);
+                sender.sendMessage(ChatColor.GREEN + "Bot stopped!");
                 break;
             //Command to set the bot token.
             case "token":
+                if (!sender.hasPermission("mclore.token") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
                 YamlConfiguration config = main.getConfig();
 
                 if (args.length < 2) {
                     sender.sendMessage(ChatColor.RED + "Please enter your token.");
+                    break;
                 }
 
                 config.set("BotToken", args[1]);
@@ -104,9 +137,14 @@ public class Commands implements CommandExecutor {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
+                sender.sendMessage(ChatColor.GREEN + "Your token has been set!");
                 break;
             //Command to link the player's account to a discord account.
             case "link":
+                if (!sender.hasPermission("mclore.link") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
                 if (!(sender instanceof Player)) {
                     sender.sendMessage(ChatColor.RED + "This command can only be used by players.");
                     return true;
@@ -133,7 +171,7 @@ public class Commands implements CommandExecutor {
                     generatedCode = randomCode();
                 }
                 //Unlinks the player's account if they're already linked to a discord account
-                if ((int) dataHandler.getPlayerConfig(player.getUniqueId()).get("LinkedAccount") > 1) {
+                if (dataHandler.isLinked(player.getUniqueId())) {
                     dataHandler.removeLink(player.getUniqueId());
                     player.sendMessage(ChatColor.RED + "Your account has been unlinked from the Discord bot!");
                 }
@@ -146,25 +184,134 @@ public class Commands implements CommandExecutor {
                 break;
             //Command to open the lore gui
             case "gui":
+                if (!sender.hasPermission("mclore.gui") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
                 if (!(sender instanceof Player)) {
                     sender.sendMessage(ChatColor.RED + "This command can only be used by players.");
                     return true;
                 }
                 player = (Player) sender;
+                if (!dataHandler.isLinked(player.getUniqueId())) {
+                    sender.sendMessage(ChatColor.RED + "Your account must be linked to use this command!");
+                    return true;
+                }
                 GuiHandler guiHandler = new GuiHandler(main);
                 //Opens the lore gui for the player
-                guiHandler.updateGui(player);
+                guiHandler.updateGui(player, dataHandler.getPlayerLore(player.getUniqueId()), 1);
                 break;
-            //Command to reset the plugin.
-            case "reset":
+            //Command to your lore queue
+            case "clear":
+                if (!sender.hasPermission("mclore.clear") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatColor.RED + "This command can only be used by players.");
+                    return true;
+                }
+                player = (Player) sender;
+                if (!dataHandler.isLinked(player.getUniqueId())) {
+                    sender.sendMessage(ChatColor.RED + "You are not linked to a discord account!");
+                    return true;
+                }
+                discordID = dataHandler.getLinkedAccount(player.getUniqueId());
+                YamlConfiguration accountConfig = dataHandler.getAccountConfig(discordID);
+                File accountFile = dataHandler.getAccountFile(discordID);
+                ArrayList<ArrayList<String>> newArray = new ArrayList<ArrayList<String>>();
+
+                accountConfig.set("LoreQueue", newArray);
+                dataHandler.saveConfig(accountFile, accountConfig);
+                sender.sendMessage(ChatColor.GOLD + "Your lore queue has been emptied!");
                 break;
             //The default result.
+            case "set":
+                if (!sender.hasPermission("mclore.set") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatColor.RED + "This command can only be used by players.");
+                    return true;
+                }
+
+                player = (Player) sender;
+                ItemStack heldItem = player.getInventory().getItemInMainHand();
+                ItemMeta heldMeta = heldItem.getItemMeta();
+                ArrayList<ArrayList<String>> loreArray = dataHandler.getPlayerLore(player.getUniqueId());
+
+                if (loreArray.size() <= 0) {
+                    player.sendMessage(ChatColor.RED + "You do not have any lore in your queue!");
+                    break;
+                }
+                ArrayList<String> newLore = loreArray.get(0);
+                String name = "";
+                name = newLore.get(0);
+                newLore.remove(0);
+                heldMeta.setLore(newLore);
+                heldMeta.setDisplayName(name);
+                heldItem.setItemMeta(heldMeta);
+                player.sendMessage(ChatColor.GREEN + "Lore set!");
+                break;
+            case "send":
+                if (!sender.hasPermission("mclore.send") && !sender.hasPermission("mclore.*")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission!");
+                    return true;
+                }
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatColor.RED + "Only players can use this command!");
+                    return true;
+                }
+                player = (Player) sender;
+                this.api = main.getApi();
+
+                if (!dataHandler.isLinked(player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "You are not linked to the Discord!");
+                    return true;
+                }
+                discordID = dataHandler.getLinkedAccount(player.getUniqueId());
+                CompletableFuture<User> userFuture = api.getUserById(discordID);
+                userFuture.thenApply(user -> {
+                    ItemStack itemInHand = player.getInventory().getItemInMainHand();
+                    if (itemInHand.getType().isAir()) {
+                        player.sendMessage(ChatColor.RED + "You must be holding an item to use this command!");
+                        return null;
+                    }
+                    user.sendMessage("Name:" + itemInHand.getItemMeta().getDisplayName().replaceAll("§", "&") + System.lineSeparator() +
+                            String.join(System.lineSeparator(), itemInHand.getItemMeta().getLore()).replaceAll("§", "&"));
+                    player.sendMessage(ChatColor.GREEN + "Item lore sent to your DMs!");
+                    return null;
+                }).exceptionally(e -> {
+                    player.sendMessage(ChatColor.RED + "Error: Could not find user with the ID your account is linked to.");
+                    return null;
+                });
+                break;
+            case "help":
+                sender.sendMessage(ChatColor.GREEN + String.join("\n" + ChatColor.GREEN, helpOptions));
+                break;
+            case "ebook":
+                player = (Player) sender;
+                guiHandler = new GuiHandler(main);
+                guiHandler.openBookGui(player);
+                player.sendMessage(ChatColor.GREEN + "Book editor opened!");
+                break;
             default:
                 sender.sendMessage(ChatColor.RED + "Missing arguments! Do /dlore help for help");
                 return true;
         }
 
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (command.getName().equalsIgnoreCase("dlore")) {
+            if (args.length == 1) {
+                return Arrays.asList("start", "stop", "token", "link", "gui", "clear", "set", "send","ebook", "help");
+            }
+        }
+        return null;
     }
 
 }

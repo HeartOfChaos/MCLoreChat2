@@ -3,12 +3,15 @@ package org.github.heartofchaos;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.github.heartofchaos.cmds.Commands;
 import org.github.heartofchaos.cmds.DiscordCommands;
+import org.github.heartofchaos.utilities.GuiHandler;
 import org.github.heartofchaos.utilities.LoreParser;
-import org.github.heartofchaos.utilities.UserDataHandler;
+import org.github.heartofchaos.utilities.MessageLore;
 import org.github.heartofchaos.utilities.UsersAndAccounts;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
@@ -19,6 +22,10 @@ import java.io.File;
 import java.util.*;
 
 public class Main extends JavaPlugin {
+
+    static {
+        ConfigurationSerialization.registerClass(MessageLore.class, "MessageLore");
+    }
 
     //Use to get the discord ID of a player. Add to it upon successful password link.
     public static Map<Integer, Player> playerCodes = new HashMap<Integer, Player>();
@@ -66,7 +73,7 @@ public class Main extends JavaPlugin {
 
         });
 
-        //These three lines add a context menu option for when a message is right clicked that the bot can see
+        //These three lines add a context menu option for when a message is right-clicked that the bot can see
         MessageContextMenuBuilder loreMenu = new MessageContextMenuBuilder();
         loreMenu.setName("Queue as Lore");
         loreMenu.createGlobal(api);
@@ -74,30 +81,30 @@ public class Main extends JavaPlugin {
         //Creates a listener to fire when the context menu option is selected
         api.addMessageContextMenuCommandListener(event ->{
 
+            if (!event.getMessageContextMenuInteraction().getCommandName().equalsIgnoreCase("Queue as Lore")) return;
+            Long messageID = event.getMessageContextMenuInteraction().getTarget().getId();
+            Long userID = event.getInteraction().getUser().getId();
+
             //Code that fires upon the lorequeue option being selected
             //Creates the datahandler to interact with the configs that store data
             UsersAndAccounts dataHandler = new UsersAndAccounts(this);
-            //These process the message into an arraylist for Lore.
-            String messageContents = event.getMessageContextMenuInteraction().getTarget().getContent();
-            ArrayList processedMessage = LoreParser.parseLoreFormat(messageContents);
-            //These set the user's information so that we can process it.
-            Long messageID = event.getMessageContextMenuInteraction().getTarget().getId();
-            Long userID = event.getInteraction().getUser().getId();
-            //These give us the configs we need to edit and save things to.
+            //This creates an object to save and add to the queue.
+            LoreParser loreParser = new LoreParser(this);
+            ArrayList<String> newLore = loreParser.parseLoreFormat(event.getMessageContextMenuInteraction().getTarget().getContent());
+
+            ArrayList<ArrayList<String>> newArray = new ArrayList<ArrayList<String>>();
+            newArray.add(newLore);
+            newArray.addAll(dataHandler.getUserLore(userID));
+
             YamlConfiguration accountConfig = dataHandler.getAccountConfig(userID);
             File accountFile = dataHandler.getAccountFile(userID);
             //Returns if it's not the Queue as Lore option being selected
-            if (!event.getMessageContextMenuInteraction().getCommandName().equalsIgnoreCase("Queue as Lore")) return;
-            //If the user is not linked, then it tells them to link their account and try again, then returns
 
             //Creates the new list of lore which will be saved to the accountConfig, overwriting the old.
-            //The message ID is saved as the first part of the array list in order to identify it for altering upon edits.
-            ArrayList<ArrayList> newList = new ArrayList<ArrayList>();
-            newList.addAll((ArrayList<ArrayList>) accountConfig.get("LoreQueue"));
-            processedMessage.add(0, messageID.toString());
-            newList.add(processedMessage);
+            //Serializes the lore, which can later be retrieved by deserializing it.
+
             //Gets the account config and then saves the new lore to it.
-            accountConfig.set("LoreQueue", newList);
+            accountConfig.set("LoreQueue", newArray);
             dataHandler.saveConfig(accountFile, accountConfig);
             //Sets a responder so that the User can see when their command has gone through.
             event.getMessageContextMenuInteraction().createImmediateResponder().setContent("Message added!").respond();
@@ -185,7 +192,8 @@ public class Main extends JavaPlugin {
     public void onEnable() {
         createConfigs();
         getCommand("dlore").setExecutor(new Commands(this));
-        getServer().getPluginManager().registerEvents(new UserDataHandler(this), this);
+
+//        getServer().getPluginManager().registerEvents(new UserDataHandler(this), this);
         if (getConfig().isSet("ConnectOnStart")) {
             if (getConfig().get("ConnectOnStart").equals(true)) {
                 try {
@@ -197,6 +205,7 @@ public class Main extends JavaPlugin {
                 }
             }
         }
+        getServer().getPluginManager().registerEvents((Listener) new GuiHandler(this), this);
     }
     @Override
     public void onDisable() {

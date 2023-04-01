@@ -44,6 +44,8 @@ public class DiscordCommands implements MessageCreateListener {
 
         }
     }
+
+    //TODO: Make the message editing event run update gui
 }
 
 //Old Hashmap-using code
